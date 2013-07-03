@@ -1,0 +1,27 @@
+body {
+	margin-left: 1;
+	margin-top: 1;
+	color: #33FFCC;
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+	font-size: 8pt;
+}
+
+a:link {
+	color: #0000FF;
+	text-decoration: underline;
+}
+
+a:hover {
+	color: #FF0000;
+	text-decoration: underline;
+}
+	
+a:visited {
+	color: #0000FF;
+	text-decoration: underline;
+}
+
+a:visited:hover {
+	color: #FF0000;
+	text-decoration: underline;
+	}

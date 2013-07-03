@@ -1,0 +1,336 @@
+
+<html>
+<head>
+<title>Triage</title>
+<? 
+include "util.php";
+include "config.php";
+?>
+
+<script type="text/javascript">
+<!--
+function setFocus()
+{
+   parent.triage_list.location = "show_triage_list.php";
+   document.forms[0].last_name.focus()
+}
+
+  function c(){
+     msg = "Enter triage data?";
+     return confirm(msg);
+  }
+-->
+</SCRIPT>
+
+</head>
+
+<body bgcolor=cyan text=black link=blue vlink=#blue alink=#00FFFF onLoad="setFocus();">
+<?
+include "navbar.php";
+?>
+ <h3>Triage </h3>  
+<?
+//foreach($_GET as $k => $v) {echo "$k => $v <br>";}
+$mode = $_GET[mode]; 
+$last_name = $_GET[last_name];
+$first_name = $_GET[first_name];
+
+if(!$mode){$mode = "form";}
+
+if($mode == "flag_walkout") 
+{
+   connect($database);
+   
+   $IND = $_GET[ind];
+   
+   $t = mysql_query("SELECT CALL_COUNT FROM sign_in WHERE IND='$IND' ");
+   while($row=mysql_fetch_array($t)){
+      $old_count = $row[CALL_COUNT];
+   }
+   echo "OLD_COUNT => $old_count <p>";
+   $new_count = $old_count +1;
+   echo "NEW_COUNT => $new_count <p>";
+
+   $result = mysql_query("UPDATE sign_in SET WALKOUT ='yes', 
+                       LAST_TRIAGE = '$timestamp',
+                       CALL_COUNT = '$new_count'
+                       WHERE IND='$IND' ");
+                                     
+echo "PT # $_GET[ind] flagged as walkout.<p>";
+
+echo "<script language='JavaScript'>
+ this.document.location='/trax/show_wait_walkout.php';
+</script>";
+exit();
+}
+
+if($mode == "walkout_ck")
+{
+connect($database);
+$sql = "SELECT IND, TSTAMP, DATE_FORMAT(TSTAMP, '%H:%i') AS SIGN_IN_TIME
+   FROM sign_in 
+   WHERE FIRST_NAME = '$_GET[first_name]'AND LAST_NAME = '$_GET[last_name]' " ;
+   
+$result = mysql_query($sql);
+
+echo "<b>Patient Name:</b> $_GET[last_name], $_GET[first_name]  <p>
+ <b>Sign in Time:</b> 
+";
+
+while($row = mysql_fetch_array($result))
+{
+echo "$row[SIGN_IN_TIME] <p>";
+$ind = $row[IND];
+$tstamp = $row[TSTAMP];
+$waiting_time = get_time_from_now($row[TSTAMP], $database);
+}
+
+echo "<b>Call to triage time: </b>"; echo date('H:i'); echo "<p>";
+
+echo "<b>Waiting time: </b> $waiting_time <p>"; 
+
+echo "<table width='50%'>
+ <tr><td>
+ <input type='button' value='No Response' ";
+ 
+ ?> onClick='this.document.location="<?echo "$_SERVER[PHP_SELF]?mode=flag_walkout&ind=$ind"?>"'>  <? 
+echo "</td><td>
+ <input type='button' value='Continue to Triage'";
+ ?> 
+onClick='this.document.location="<?echo "$_SERVER[PHP_SELF]?mode=form&first_name=$_GET[first_name]&last_name=$_GET[last_name]&stamp=true&ind=$ind&tstamp=$tstamp"?>"'> 
+</td> <td> <input type='button' value='Cancel' onClick='this.document.location="document.history(-1)"'>
+
+<!-- </td> <td> <input type='button' value='Cancel' onClick='this.document.location="show_wait_walkout.php"'> -->
+       </td>
+    </tr>
+   </table>
+<?
+exit();
+}
+
+
+if($mode = "form")
+{
+
+$form_modules = get_form_modules();
+
+if($form_modules['NAME'] == 'yes'){
+   echo "
+      <form action='enter_triage_data.php' onSubmit='return c()'>
+
+     <input type='hidden' name='orig_first_name' value='$_GET[first_name]'>
+     <input type='hidden' name='orig_last_name' value='$_GET[last_name]'>
+     <center>
+     <Table border='1' width='60%'>
+     <CAPTION align='left'> <b>Patient Name</b> </CAPTION>
+     <tr><td>
+     First     </td><td>  <input type='text' name='first_name' value='$_GET[first_name]' size='10' max  length='10' </td><td>
+     Last      </td><td>   <input type='text' name='last_name' value='$_GET[last_name]' size='15' maxlength='25'> </td></tr>
+     </table>
+     <p>
+     ";
+}
+
+<Table border='1' width='60%'>
+<tr><td><b>Age:&nbsp </b> </td><td><input name="age" size="4"> </td>
+<td><b>Sex:&nbsp </b> </td><td>Male <input type="radio" name="sex" value="male">
+			   Female <input type="radio" name="sex" value="female">
+		      </td>
+</tr>
+</table><p>
+
+<? 
+// MRN assignment and time stamping
+/* This obscure bit of code does the following:
+1) Assigns Unix time stamp as MRN
+2) If patient signed in their time stamp from sign_in table is retrieved and inserted into the 
+time track table
+3) START_TRIAGE time stamp is generated for signed in patients
+*/
+
+$MRN = time();
+
+// Time stamp sign in time
+$tstamp = $_GET[tstamp];
+$stamp = $_GET[stamp];
+
+//echo "TSTAMP ==> $tstamp <p> STAMP ==> $stamp <p>";
+if($tstamp != "")
+{
+$tstamp = fix_timestamp($tstamp, $database);
+
+connect($database);
+
+$sign_in_time_stamp_result = 
+mysql_query("INSERT INTO time_track (MRN, EVENT, TM) VALUES('$MRN', 'PT_SIGN_IN', '$tstamp')" )
+ or die ("Failed to timestamp sign in time: $tstamp");
+}
+
+if ($stamp == "true") {$stamp_result = STAMP($MRN, "START_TRIAGE", "yes");}
+?>
+
+<!--
+<Table border='1' width='60%'> 
+<tr><td>
+Medical Record Number:    </td><td> <input type="text" name="MRN" size="7" maxlength="7"> 
+<font size='-1'><i> (seven digits) </i></font> </td></tr>
+</table><p>
+-->
+
+<Table border='1' width='60%'> <CAPTION align="left"> <b>Chief Complaint</b> </CAPTION>
+<tr><td> Choose: 
+
+<?
+$complaints = get_complaint_list($database);
+sort($complaints);
+
+echo "<SELECT name='complaint_1'>";
+foreach($complaints as $comp)
+{
+if ($comp == "empty")
+{
+ echo "<option value='$comp' selected> </option>";
+}
+else
+{
+ echo "<option value='$comp'>$comp</option>";
+}
+}
+?>
+</SELECT>
+
+</td> 
+<td>or write in:
+   <input type="text" name="complaint_2"  size="25" maxlength="25"> 
+</td></tr>
+</table>
+<p>
+
+<Table border='1' width='60%'> <CAPTION align="left"> <b>Vital Signs</b> </CAPTION>
+<tr>
+    <td> Temp:<input name="temp" size="6" maxlength='5'>      </td>
+    <td> BP:<input name="SBP" size="3" maxlength='3'> /
+	    <input name="DBP" size="3" maxlength='3'>         </td> </tr>
+<tr>
+    <td> Pulse:<input name="pulse" size="4" maxlength='3'>    </td>
+    <td> Resp:<input name="resp" size="8" maxlength='2'>      </td> </tr>
+<tr>
+    <td> Sat:<input name="pox" size="4" maxlength='3'>%        </td>
+    <td> Glucose:<input name="glu" size="4" maxlength='4'>   </td>
+</tr>
+
+<tr>   <td> Pain Scale:</td><td>
+    <? for($i=1; $i<=10; $i++) { echo "$i<input type='radio' name='pain_scale' value='$i'>";} ?>   </td>
+</tr>
+
+</table>
+<p>
+
+<Table border='1' width='60%'> <CAPTION align="left"> <b>Past Medical History</b> </CAPTION>
+
+<tr><td> <textarea name="pmh" rows="3" cols="40"></textarea> </td> </tr>
+</table>
+
+<p>     
+<Table border='1' width='60%'>
+<tr><td> <b> Medications </b> </td>
+    <td> <b> Allergies   </b> </td>
+</tr>
+<tr><td> <textarea name="meds" rows="4" cols="20"></textarea> </td>
+    <td> <textarea name="allergies" rows="4" cols="20"></textarea> </td>
+</tr>
+</table>
+<p>
+
+<Table border='1' width='60%'>  <CAPTION align="left"> <b>History of Present Illness</b> </CAPTION>
+   	<tr><td> <textarea name="hx" rows="5" cols="40"></textarea> </td> </tr>
+  </table>
+  <p>
+
+  
+  <Table border='1' width='60%'>  <CAPTION align="left"> <b>Acuity</b> </CAPTION>
+   	<tr>
+            <td>    high <input type="radio" name="acuity"  value='emergent'> </td>
+   	    <td>    med  <input type="radio" name="acuity"  value='urgent'>  </td>
+   	    <td>    low  <input type="radio" name="acuity"  value='stable'>  </td>
+        </tr>
+   </Table>
+   <p>
+  
+  <Table border='1' width='60%'>  <CAPTION align="left"> <b>Assigned Waiting Area</b> </CAPTION>
+   	<tr>
+<?
+   connect($database);
+   $result = mysql_query("SELECT * FROM WAITING_AREAS");
+   while ($row = mysql_fetch_array($result))
+   {
+      echo "<td> $row[NAME] <input type='radio' name='lobby_type'  value='$row[NAME]'> </td> ";
+   }
+?>
+   	</tr>
+   </Table>
+   <p>
+<?
+echo "<input type='hidden' name='MRN' value='$MRN'>"; 
+echo "<input type='hidden' name='signin_ind' value='$_GET[ind]'>";
+?>
+    <input type="submit" name="Submit" value="Submit" size='10'>
+    <input type=reset value="Clear" size='10'>
+  </p>
+</form> 
+<p>
+</body>
+</html>
+<?
+}
+
+
+
+function get_complaint_list($database)
+{
+   $complaints = array();
+   connect($database); 
+   $sql = "SELECT COMP FROM complaints" ;
+
+   $result = mysql_query($sql); 
+   while($row = mysql_fetch_array($result))
+   {
+      array_push($complaints, $row[COMP]);
+   }  
+   return $complaints;
+}
+
+// Fixes raw timestamp for re - insertion in time_track table
+  
+function fix_timestamp($tstamp, $database)
+{
+   if(preg_match("/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/", $tstamp, $regs))
+   {
+      $year  = $regs[1];
+      $month = $regs[2];
+      $day   = $regs[3];
+      $hr    = $regs[4];
+      $min   = $regs[5];
+      $sec   = $regs[6];
+      
+      $fixed_time = "$year-$month-$day $hr:$min:$sec";
+   }
+   return $fixed_time;
+}
+      
+// Determines which modules to use in form
+
+function get_form_modules() {
+  open_connection($database);
+  $sql = "SELECT * FROM triage_form_modules WHERE USED = 'yes'";
+  $r = mysql_query($sql);
+ 
+  while( $row = mysql_fetch_array($r)){
+      $form_modules[$row[NAME]] = 'yes';
+  }
+  return $form_modules;
+}
+      
+      
+      
+      
