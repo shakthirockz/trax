@@ -2,7 +2,7 @@
 include "util.php";
 $database = "trax";
 $table = "pt_status";
-$footer = "<center><a href='index.htm'>Back to Patient Tracking</a>";
+$footer = "<center><a href='show_ER_patients.php?er_select=All'>Back to Patient Tracking</a>";
 
 echo "
 <html> <head><title>Trax_RT System - Reports.</title></head>
